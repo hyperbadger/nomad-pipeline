@@ -21,6 +21,7 @@ const (
 	rootTag            = "nomad-pipeline/root"
 	nextTag            = "nomad-pipeline/next"
 	dependenciesTag    = "nomad-pipeline/dependencies"
+	countTag           = "nomad-pipeline/count"
 	dynamicTasksTag    = "nomad-pipeline/dynamic-tasks"
 	dynamicMemoryMBTag = "nomad-pipeline/dynamic-memory-mb"
 
@@ -181,14 +182,19 @@ func tgDone(allocs []*nomad.AllocationListStub, groups []string, success bool) b
 		return false
 	}
 
-	dGroups := make([]string, 0)
-
 	// sort allocations from newest to oldest job version
 	sort.Slice(allocs, func(i, j int) bool { return allocs[i].JobVersion > allocs[j].JobVersion })
 	// deduping will use the latest job version and remove older ones
 	// hence the prior sorting
 	allocs = dedupAllocs(allocs)
 
+	// keeps track of how many allocations a task group expects to be complete
+	groupCount := make(map[string]int, 0)
+	for _, alloc := range allocs {
+		groupCount[alloc.TaskGroup] += 1
+	}
+
+	dGroupCount := make(map[string]int, 0)
 	for _, alloc := range allocs {
 		for _, group := range groups {
 			if alloc.TaskGroup == group {
@@ -209,9 +215,18 @@ func tgDone(allocs []*nomad.AllocationListStub, groups []string, success bool) b
 				}
 
 				if tasks == dTasks {
-					dGroups = append(dGroups, group)
+					dGroupCount[group] += 1
 				}
 			}
+		}
+	}
+
+	dGroups := make([]string, 0)
+	for group, count := range dGroupCount {
+		log.Debugf("%v => %v completions", group, count)
+
+		if count >= groupCount[group] {
+			dGroups = append(dGroups, group)
 		}
 	}
 
@@ -676,8 +691,8 @@ func (pc *PipelineController) Next(groups []string, dynTasks string) {
 	}
 
 	for _, group := range groups {
-		g := pc.Job.LookupTaskGroup(group)
-		if g == nil {
+		tg := pc.Job.LookupTaskGroup(group)
+		if tg == nil {
 			log.Warnf("could not find next group %v", group)
 			continue
 		}
@@ -685,10 +700,22 @@ func (pc *PipelineController) Next(groups []string, dynTasks string) {
 			log.Warnf("next group already has allocations, skipping trigger: %v", group)
 			continue
 		}
-		g.Count = i2p(1)
+
+		count := 1
+		if countStr, ok := tg.Meta[countTag]; ok {
+			counte := os.ExpandEnv(countStr)
+			count, err = strconv.Atoi(counte)
+			if err != nil {
+				log.Warn("can't convert count tag (%v) of value (%v) to a integer, defaulting to 1", countTag, countStr)
+				count = 1
+			}
+		}
+		tg.Count = i2p(count)
 	}
 
-	cGroup.Count = i2p(0)
+	if pc.TaskName == "init" || tgDone(jAllocs, []string{pc.GroupName}, true) {
+		cGroup.Count = i2p(0)
+	}
 
 	err = pc.UpdateJob()
 	if err != nil {

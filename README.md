@@ -73,6 +73,8 @@ group "2-second-task-group" {
 
 **Run tasks in parallel**
 
+***Using dependencies***
+
 To support running tasks in parallel and having a final task that runs at the end of all parallel tasks (eg. fan-out fan-in pattern), you can use the `nomad-pipeline/dependencies` tag.
 
 ```mermaid
@@ -99,6 +101,14 @@ group "E" {
 ```
 
 See [`dependencies.hcl`](examples/dependencies.hcl) for a more complete example.
+
+***Using count***
+
+Another way to implement the fan-out fan-in pattern is to have multiple instances of a task group that can all pick up some work. Without nomad-pipeline, this is quite easy, you just set the [`count` stanza](https://www.nomadproject.io/docs/job-specification/group#count) on the task group. However, when using nomad-pipeline, the control of count is not in your hands. So if you want to set a count greater than 1, you can set the `nomad-pipeline/count` tag.
+
+> 💡 *Tip: The [`count` stanza](https://www.nomadproject.io/docs/job-specification/group#count) doesn't support variable interpolation since the config value is an integer and not a string - currently Nomad only support variable interpolation for string config values. This means that `count` can't be set from a `NOMAD_META_` variable, which is required for setting the `count` dynamically in a parameterized job. Using the `nomad-pipeline/count` tag allows you work around this. All `nomad-pipeline/*` tags interpolates variables, so you can use something like `"nomad-pipeline/count" = "${NOMAD_META_count}"`*
+
+See [`examples/fan-out-fan-in.hcl`](examples/fan-out-fan-in.hcl) for a more complete example.
 
 **Dynamic tasks**
 
