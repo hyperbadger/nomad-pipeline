@@ -19,12 +19,13 @@ import (
 )
 
 const (
-	rootTag            = "nomad-pipeline/root"
-	nextTag            = "nomad-pipeline/next"
-	dependenciesTag    = "nomad-pipeline/dependencies"
 	countTag           = "nomad-pipeline/count"
-	dynamicTasksTag    = "nomad-pipeline/dynamic-tasks"
+	dependenciesTag    = "nomad-pipeline/dependencies"
 	dynamicMemoryMBTag = "nomad-pipeline/dynamic-memory-mb"
+	dynamicTasksTag    = "nomad-pipeline/dynamic-tasks"
+	leaderTag          = "nomad-pipeline/leader"
+	nextTag            = "nomad-pipeline/next"
+	rootTag            = "nomad-pipeline/root"
 
 	// internal tags, not  meant to be set by user
 	_parentTask = "nomad-pipeline/_parent-task"
@@ -503,7 +504,7 @@ func (pc *PipelineController) ProcessTaskGroups(filters ...map[string]string) ([
 	return rTasks, nil
 }
 
-func (pc *PipelineController) Init() {
+func (pc *PipelineController) Init() bool {
 	envVarSlugs := generateEnvVarSlugs()
 
 	for k, v := range envVarSlugs {
@@ -515,19 +516,16 @@ func (pc *PipelineController) Init() {
 		log.Fatalf("error processing task groups: %v", err)
 	}
 
-	err = pc.UpdateJob()
-	if err != nil {
-		log.Fatalf("error updating job: %v", err)
-	}
-
 	if len(rTasks) == 0 {
 		log.Fatalf("couldn't find a root task group, need to set the root meta tag (%v)", rootTag)
 	}
 
-	pc.Next(rTasks, "")
+	return pc.Next(rTasks, "")
 }
 
 func (pc *PipelineController) Wait(groups []string) {
+	log.Infof("waiting for following groups: %v", groups)
+
 	jAllocs, meta, err := pc.JobsAPI.Allocations(pc.JobID, true, &nomad.QueryOptions{})
 	if err != nil {
 		log.Fatalf("error getting job allocations: %v", err)
@@ -638,7 +636,9 @@ func (pc *PipelineController) Wait(groups []string) {
 	}
 }
 
-func (pc *PipelineController) Next(groups []string, dynTasks string) {
+func (pc *PipelineController) Next(groups []string, dynTasks string) bool {
+	log.Infof("triggering the following groups: %v", groups)
+
 	jAllocs, _, err := pc.JobsAPI.Allocations(pc.JobID, true, nil)
 	if err != nil {
 		log.Fatalf("error getting job allocations: %v", err)
@@ -654,6 +654,21 @@ func (pc *PipelineController) Next(groups []string, dynTasks string) {
 		log.Fatalf("could not find current group (%v), this shouldn't happen!", pc.GroupName)
 	}
 
+	leader := false
+	if leaderStr, ok := cGroup.Meta[leaderTag]; ok {
+		leadere := os.ExpandEnv(leaderStr)
+		leader, err = strconv.ParseBool(leadere)
+		if err != nil {
+			log.Warnf("can't convert leader tag (%v) of value (%v) to a bool, defaulting to 1", leaderTag, leadere)
+		}
+	}
+	if leader {
+		for _, tg := range pc.Job.TaskGroups {
+			tg.Count = i2p(0)
+		}
+		return true
+	}
+
 	cTasks := []string{}
 
 	for _, t := range cGroup.Tasks {
@@ -664,7 +679,8 @@ func (pc *PipelineController) Next(groups []string, dynTasks string) {
 
 	for _, t := range cTasks {
 		if !successState(cAlloc.TaskStates[t]) {
-			log.Fatalf("task %v didn't run successfully, not triggering next group", t)
+			log.Warnf("task %v didn't run successfully, not triggering next group", t)
+			return false
 		}
 	}
 
@@ -734,7 +750,7 @@ func (pc *PipelineController) Next(groups []string, dynTasks string) {
 			counte := os.ExpandEnv(countStr)
 			count, err = strconv.Atoi(counte)
 			if err != nil {
-				log.Warn("can't convert count tag (%v) of value (%v) to a integer, defaulting to 1", countTag, countStr)
+				log.Warn("can't convert count tag (%v) of value (%v) to a integer, defaulting to 1", countTag, counte)
 				count = 1
 			}
 		}
@@ -745,10 +761,7 @@ func (pc *PipelineController) Next(groups []string, dynTasks string) {
 		cGroup.Count = i2p(0)
 	}
 
-	err = pc.UpdateJob()
-	if err != nil {
-		log.Fatalf("error updating job: %v", err)
-	}
+	return true
 }
 
 func main() {
@@ -764,18 +777,21 @@ func main() {
 
 	pc := NewPipelineController(*cPath)
 
-	if *init {
-		pc.Init()
-		log.Info("successfully initialized job")
-		os.Exit(0)
-	}
-
 	groups := flag.Args()
-	log.Infof("targeting following groups: %v", groups)
 
-	if *wait {
+	update := false
+	if *init {
+		update = pc.Init()
+	} else if *wait {
 		pc.Wait(groups)
 	} else if *next {
-		pc.Next(groups, *dynamicTasks)
+		update = pc.Next(groups, *dynamicTasks)
+	}
+
+	if update {
+		err := pc.UpdateJob()
+		if err != nil {
+			log.Fatalf("error updating job: %v", err)
+		}
 	}
 }
