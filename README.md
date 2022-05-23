@@ -13,43 +13,60 @@ It's just 2 steps...
 The 'init' task will look at all the meta-tags setup in the next step and inject lifecycle task hooks into the task groups. The hooks are responsible for starting the next task group after the current one finishes.
 
 ```hcl
-group "▶️" {
-  count = 1
+variable "nomad_addr" {
+  type    = string
+}
 
-  task "init" {
-    driver = "docker"
+job "example-job" {
 
-    config {
-      image = "ghcr.io/hyperbadger/nomad-pipeline:main"
-      args  = ["-init"]
-    }
+  group "▶️" {
+    count = 1
 
-    env {
-      NOMAD_ADDR = var.nomad_addr
+    task "init" {
+      driver = "docker"
+
+      config {
+        image = "ghcr.io/hyperbadger/nomad-pipeline:main"
+        args  = ["-init"]
+      }
+
+      env {
+        NOMAD_ADDR = var.nomad_addr
+      }
     }
   }
+
+  ...
 }
 ```
 
 **Annotate task groups with meta-tags**
 
 ```hcl
-group "1-first-task-group" {
-  count = 0  # <-- Important! nomad-pipeline will control the count
+job "example-job" {
 
-  meta = {
-    "nomad-pipeline/root" = "true"  # <-- Indicates the starting task group
-    "nomad-pipeline/next" = "2-second-task-group"
+  ...
+
+  group "1-first-task-group" {
+    count = 0  # <-- Important! nomad-pipeline will control the count
+
+    meta = {
+      "nomad-pipeline/root" = "true"  # <-- Indicates the starting task group
+      "nomad-pipeline/next" = "2-second-task-group"
+    }
+
+    ...
+  }
+
+  group "2-second-task-group" {
+    count = 0
+
+    ...
   }
 
   ...
 }
 
-group "2-second-task-group" {
-  count = 0
-
-  ...
-}
 ```
 
 ## How to run examples?
