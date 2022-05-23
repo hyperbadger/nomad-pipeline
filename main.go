@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strconv"
 	"strings"
@@ -240,6 +241,27 @@ func tgDone(allocs []*nomad.AllocationListStub, groups []string, success bool) b
 	dGroups = dedupStr(dGroups)
 
 	return equalStr(groups, dGroups)
+}
+
+func generateEnvVarSlugs() map[string]string {
+	envVars := []string{"JOB_ID", "JOB_NAME"}
+
+	exp := "[^A-Za-z0-9]+"
+	reg, err := regexp.Compile(exp)
+	if err != nil {
+		log.Fatalf("error compiling regular expression (%s): %v", exp, err)
+	}
+
+	slugs := make(map[string]string, 0)
+	for _, envVar := range envVars {
+		orig := os.Getenv(fmt.Sprintf("NOMAD_%s", envVar))
+		slugKey := fmt.Sprintf("%s_SLUG", envVar)
+		slug := reg.ReplaceAllString(orig, "-")
+		slug = strings.Trim(slug, "-")
+		slugs[slugKey] = slug
+	}
+
+	return slugs
 }
 
 func loadConfig(cPath string) *Config {
@@ -482,6 +504,12 @@ func (pc *PipelineController) ProcessTaskGroups(filters ...map[string]string) ([
 }
 
 func (pc *PipelineController) Init() {
+	envVarSlugs := generateEnvVarSlugs()
+
+	for k, v := range envVarSlugs {
+		pc.Job.SetMeta(k, v)
+	}
+
 	rTasks, err := pc.ProcessTaskGroups()
 	if err != nil {
 		log.Fatalf("error processing task groups: %v", err)
