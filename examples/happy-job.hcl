@@ -56,7 +56,7 @@ job "happy" {
       driver = "raw_exec"
 
       config {
-      command = "/bin/bash"
+        command = "/bin/bash"
         args = ["local/main.sh"]
       }
 

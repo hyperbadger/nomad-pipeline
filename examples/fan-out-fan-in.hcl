@@ -54,7 +54,7 @@ job "fan-out-fan-in" {
       driver = "raw_exec"
 
       config {
-      command = "/bin/bash"
+        command = "/bin/bash"
         args = ["local/main.sh"]
       }
 
@@ -89,7 +89,7 @@ job "fan-out-fan-in" {
       driver = "raw_exec"
 
       config {
-      command = "/bin/bash"
+        command = "/bin/bash"
         args = ["local/main.sh"]
       }
 
@@ -98,8 +98,8 @@ job "fan-out-fan-in" {
         #!/bin/bash
 
         echo "pick things off queue and do work"
-        sleep 10
-        # sleep $((5 + RANDOM % 20));
+        # sleep 10
+        sleep $((5 + RANDOM % 20));
 
         EOT
 
