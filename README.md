@@ -178,6 +178,26 @@ group "1-generate-tasks" {
 
 See [`dynamic-job.hcl`](examples/dynamic-job.hcl) for a more complete example.
 
+**Job Level Leader**
+
+Nomad currently allows you to set a [`leader`](https://www.nomadproject.io/docs/job-specification/task#leader) at the task level. This allows you to gracefully shutdown all other tasks in the group when the leader task exits.
+
+Using the `nomad-pipeline/leader` tag, you can get the same functionality at the job level. You can set the tag on a task group, and when that task group completes, all other task groups will be gracefully shutdown.
+
+```hcl
+group "leader" {
+  count = 0
+
+  meta = {
+    "nomad-pipeline/leader" = "true"
+  }
+
+  ...
+}
+```
+
+See [`leader-task-group.hcl`](examples/leader-task-group.hcl) for a more complete example.
+
 **URL Friendly Nomad Environment Variables**
 
 There are many useful [Nomad environment variables](https://www.nomadproject.io/docs/runtime/interpolation#interpreted_env_vars) that can be used at runtime and in config fields that support variable interpolation. However, in some cases, some of these environment variables are not URL friendly - in the case of parameterized jobs, the dispatched job's ID (`NOMAD_JOB_ID`) and name (`NOMAD_JOB_NAME`) will have a `/` in them. URL friendly versions of these variables are required when using them in the [`service` stanza](https://www.nomadproject.io/docs/job-specification/service#name). To allow for this, a URL friendly version of the `NOMAD_JOB_ID` and `NOMAD_JOB_NAME` can be found under `NOMAD_META_JOB_ID_SLUG` and `NOMAD_META_JOB_ID_SLUG` - the inspiration for `_SLUG` came from [Gitlab predefined variables](https://docs.gitlab.com/ee/ci/variables/predefined_variables.html). These meta variables are injected at the job level by the init task of nomad-pipeline, making them available to all the task groups that come after it.
