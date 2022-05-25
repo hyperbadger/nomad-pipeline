@@ -9,8 +9,9 @@ on:
   push:
     branches:
       - main
-      - f-*
-      - b-*
+      - f-* # feature
+      - b-* # bug
+      - c-* # chore
     # Publish semver tags as releases.
     tags: [ 'v*.*.*' ]
   pull_request:
