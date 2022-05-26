@@ -15,7 +15,7 @@ import (
 
 	nomad "github.com/hashicorp/nomad/api"
 	log "github.com/sirupsen/logrus"
-	yaml "gopkg.in/yaml.v2"
+	yaml "gopkg.in/yaml.v3"
 )
 
 const (
