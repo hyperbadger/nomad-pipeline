@@ -5,7 +5,7 @@ go 1.18
 require (
 	github.com/hashicorp/nomad/api v0.0.0-20220525183220-49ae238604f4
 	github.com/sirupsen/logrus v1.8.1
-	gopkg.in/yaml.v3 v3.0.0
+	gopkg.in/yaml.v3 v3.0.1
 )
 
 require (
