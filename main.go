@@ -265,6 +265,38 @@ func generateEnvVarSlugs() map[string]string {
 	return slugs
 }
 
+func lookupMetaTagInt(meta map[string]string, tag string) (int, error) {
+	value := 0
+	if valueStr, ok := meta[tag]; ok {
+		valuee := os.ExpandEnv(valueStr)
+		value, err := strconv.Atoi(valuee)
+		if err != nil {
+			return value, fmt.Errorf("can't convert tag (%v) of value (%v) to an int", tag, valuee)
+		}
+	}
+	return value, nil
+}
+
+func lookupMetaTagStr(meta map[string]string, tag string) string {
+	value := ""
+	if valueStr, ok := meta[tag]; ok {
+		value = os.ExpandEnv(valueStr)
+	}
+	return value
+}
+
+func lookupMetaTagBool(meta map[string]string, tag string) (bool, error) {
+	value := false
+	if valueStr, ok := meta[tag]; ok {
+		valuee := os.ExpandEnv(valueStr)
+		value, err := strconv.ParseBool(valuee)
+		if err != nil {
+			return value, fmt.Errorf("can't convert tag (%v) of value (%v) to a bool", tag, valuee)
+		}
+	}
+	return value, nil
+}
+
 func loadConfig(cPath string) *Config {
 	cBytes, err := os.ReadFile(cPath)
 
@@ -405,37 +437,33 @@ func (pc *PipelineController) ProcessTaskGroups(filters ...map[string]string) ([
 			Name: *tGroup.Name,
 		}
 
-		if next, ok := tGroup.Meta[nextTag]; ok {
+		if next := lookupMetaTagStr(tGroup.Meta, nextTag); len(next) > 0 {
 			task.Next = split(next)
 		}
 
-		if dependencies, ok := tGroup.Meta[dependenciesTag]; ok {
+		if dependencies := lookupMetaTagStr(tGroup.Meta, dependenciesTag); len(dependencies) > 0 {
 			task.Dependencies = split(dependencies)
 		}
 
 		tasks = append(tasks, task)
 
-		if root, ok := tGroup.Meta[rootTag]; ok {
-			isRoot, err := strconv.ParseBool(root)
-			if err != nil {
-				return nil, fmt.Errorf("root meta tag (%v) is set on task group (%v) but is not convertable to a bool", rootTag, tGroup.Name)
-			}
-
-			if isRoot {
-				rTasks = append(rTasks, *tGroup.Name)
-			}
+		root, err := lookupMetaTagBool(tGroup.Meta, rootTag)
+		if err != nil {
+			return nil, fmt.Errorf("error parsing root tag: %v", err)
+		}
+		if root {
+			rTasks = append(rTasks, *tGroup.Name)
 		}
 
 		// not sure if this should be here
 		for _, t := range tGroup.Tasks {
-			if mem, ok := t.Meta[dynamicMemoryMBTag]; ok {
-				meme := os.ExpandEnv(mem)
-				memi, err := strconv.Atoi(meme)
-				if err != nil {
-					return nil, fmt.Errorf("can't convert dynamic memory tag (%v) of value (%v) to a integer", dynamicMemoryMBTag, mem)
-				}
-				t.Resources.MemoryMB = i2p(memi)
-				log.Debugf("setting dynamic memory for task (%v) in task group (%v) to (%v)", t.Name, *tGroup.Name, memi)
+			mem, err := lookupMetaTagInt(t.Meta, dynamicMemoryMBTag)
+			if err != nil {
+				return nil, fmt.Errorf("error parsing dynamic memory tag: %v", err)
+			}
+			if mem > 0 {
+				t.Resources.MemoryMB = i2p(mem)
+				log.Debugf("setting dynamic memory for task (%v) in task group (%v) to (%v)", t.Name, *tGroup.Name, mem)
 			}
 		}
 	}
@@ -488,7 +516,7 @@ func (pc *PipelineController) ProcessTaskGroups(filters ...map[string]string) ([
 
 		nArgs := append([]string{"-next"}, task.Next...)
 
-		if dynTasks, ok := tGroup.Meta[dynamicTasksTag]; ok {
+		if dynTasks := lookupMetaTagStr(tGroup.Meta, dynamicTasksTag); len(dynTasks) > 0 {
 			nArgs = append([]string{"-dynamic-tasks", dynTasks}, nArgs...)
 		}
 
@@ -654,13 +682,9 @@ func (pc *PipelineController) Next(groups []string, dynTasks string) bool {
 		log.Fatalf("could not find current group (%v), this shouldn't happen!", pc.GroupName)
 	}
 
-	leader := false
-	if leaderStr, ok := cGroup.Meta[leaderTag]; ok {
-		leadere := os.ExpandEnv(leaderStr)
-		leader, err = strconv.ParseBool(leadere)
-		if err != nil {
-			log.Warnf("can't convert leader tag (%v) of value (%v) to a bool, defaulting to 1", leaderTag, leadere)
-		}
+	leader, err := lookupMetaTagBool(cGroup.Meta, leaderTag)
+	if err != nil {
+		log.Warnf("error parsing leader, default to false: %v", err)
 	}
 	if leader {
 		for _, tg := range pc.Job.TaskGroups {
@@ -745,16 +769,16 @@ func (pc *PipelineController) Next(groups []string, dynTasks string) bool {
 			continue
 		}
 
-		count := 1
-		if countStr, ok := tg.Meta[countTag]; ok {
-			counte := os.ExpandEnv(countStr)
-			count, err = strconv.Atoi(counte)
-			if err != nil {
-				log.Warn("can't convert count tag (%v) of value (%v) to a integer, defaulting to 1", countTag, counte)
-				count = 1
-			}
+		tg.Count = i2p(1)
+
+		count, err := lookupMetaTagInt(tg.Meta, countTag)
+		if err != nil {
+			log.Warn("error parsing count tag, defaulting to 1: %v", err)
+			count = 1
 		}
-		tg.Count = i2p(count)
+		if count > 0 {
+			tg.Count = i2p(count)
+		}
 	}
 
 	if pc.TaskName == "init" || tgDone(jAllocs, []string{pc.GroupName}, true) {
