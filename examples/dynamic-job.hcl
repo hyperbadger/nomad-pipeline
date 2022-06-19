@@ -29,7 +29,7 @@ job "dynamic" {
 
       config {
         image = var.image
-        args  = ["-init"]
+        args  = ["agent", "init"]
 
         extra_hosts    = var.docker_extra_hosts
         auth_soft_fail = true
