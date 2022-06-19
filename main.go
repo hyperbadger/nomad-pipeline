@@ -266,10 +266,12 @@ func generateEnvVarSlugs() map[string]string {
 }
 
 func lookupMetaTagInt(meta map[string]string, tag string) (int, error) {
-	value := 0
+	var value int
+	var err error
+
 	if valueStr, ok := meta[tag]; ok {
 		valuee := os.ExpandEnv(valueStr)
-		value, err := strconv.Atoi(valuee)
+		value, err = strconv.Atoi(valuee)
 		if err != nil {
 			return value, fmt.Errorf("can't convert tag (%v) of value (%v) to an int", tag, valuee)
 		}
@@ -278,7 +280,8 @@ func lookupMetaTagInt(meta map[string]string, tag string) (int, error) {
 }
 
 func lookupMetaTagStr(meta map[string]string, tag string) string {
-	value := ""
+	var value string
+
 	if valueStr, ok := meta[tag]; ok {
 		value = os.ExpandEnv(valueStr)
 	}
@@ -286,10 +289,12 @@ func lookupMetaTagStr(meta map[string]string, tag string) string {
 }
 
 func lookupMetaTagBool(meta map[string]string, tag string) (bool, error) {
-	value := false
+	var value bool
+	var err error
+
 	if valueStr, ok := meta[tag]; ok {
 		valuee := os.ExpandEnv(valueStr)
-		value, err := strconv.ParseBool(valuee)
+		value, err = strconv.ParseBool(valuee)
 		if err != nil {
 			return value, fmt.Errorf("can't convert tag (%v) of value (%v) to a bool", tag, valuee)
 		}
