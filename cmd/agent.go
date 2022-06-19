@@ -15,8 +15,9 @@ var agentCmd = &cobra.Command{
 }
 
 var agentInitCmd = &cobra.Command{
-	Use:  "init",
-	Args: cobra.NoArgs,
+	Use:   "init",
+	Short: "Initialize job with nomad-pipeline hooks",
+	Args:  cobra.NoArgs,
 	Run: func(cmd *cobra.Command, args []string) {
 		pc := controller.NewPipelineController(cPath)
 
@@ -31,8 +32,9 @@ var agentInitCmd = &cobra.Command{
 }
 
 var agentWaitCmd = &cobra.Command{
-	Use:  "wait",
-	Args: cobra.ArbitraryArgs,
+	Use:   "wait",
+	Short: "Wait for previous task group(s)",
+	Args:  cobra.ArbitraryArgs,
 	Run: func(cmd *cobra.Command, args []string) {
 		pc := controller.NewPipelineController(cPath)
 
@@ -41,8 +43,9 @@ var agentWaitCmd = &cobra.Command{
 }
 
 var agentNextCmd = &cobra.Command{
-	Use:  "next",
-	Args: cobra.ArbitraryArgs,
+	Use:   "next",
+	Short: "Trigger next task group(s)",
+	Args:  cobra.ArbitraryArgs,
 	Run: func(cmd *cobra.Command, args []string) {
 		pc := controller.NewPipelineController(cPath)
 
