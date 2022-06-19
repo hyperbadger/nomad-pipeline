@@ -511,7 +511,7 @@ func (pc *PipelineController) ProcessTaskGroups(filters ...map[string]string) ([
 		nArgs := append([]string{"agent", "next"}, task.Next...)
 
 		if dynTasks := lookupMetaTagStr(tGroup.Meta, dynamicTasksTag); len(dynTasks) > 0 {
-			nArgs = append([]string{"agent", "next", "-dynamic-tasks", dynTasks}, task.Next...)
+			nArgs = append([]string{"agent", "next", "--dynamic-tasks", dynTasks}, task.Next...)
 		}
 
 		nTaskCfg := copyMapInterface(procTask.Config)
