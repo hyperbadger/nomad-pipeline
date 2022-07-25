@@ -23,6 +23,10 @@ job "happy" {
   datacenters = var.datacenters
   type        = "batch"
 
+  meta = {
+    "nomad-pipeline.enabled" = "true"
+  }
+
   group "▶️" {
     count = 1
 
@@ -48,8 +52,8 @@ job "happy" {
     count = 0
 
     meta = {
-      "nomad-pipeline/root" = "true"
-      "nomad-pipeline/next" = "2-multi-task-group"
+      "nomad-pipeline.root" = "true"
+      "nomad-pipeline.next" = "2-multi-task-group"
     }
 
     task "normal" {
@@ -78,7 +82,7 @@ job "happy" {
     count = 0
 
     meta = {
-      "nomad-pipeline/next" = "3a-parallel,3b-parallel-i"
+      "nomad-pipeline.next" = "3a-parallel,3b-parallel-i"
     }
 
     task "first_task" {
@@ -102,7 +106,7 @@ job "happy" {
     count = 0
 
     meta = {
-      "nomad-pipeline/next" = "4-dependent"
+      "nomad-pipeline.next" = "4-dependent"
     }
 
     task "parallel" {
@@ -130,7 +134,7 @@ job "happy" {
     count = 0
 
     meta = {
-      "nomad-pipeline/next" = "3b-parallel-ii"
+      "nomad-pipeline.next" = "3b-parallel-ii"
     }
 
     task "parallel" {
@@ -158,7 +162,7 @@ job "happy" {
     count = 0
 
     meta = {
-      "nomad-pipeline/next" = "4-dependent"
+      "nomad-pipeline.next" = "4-dependent"
     }
 
     task "parallel" {
@@ -188,7 +192,7 @@ job "happy" {
     meta = {
       # BUG: when whole job is restarted, it will not wait for this task group,
       # 4-dependent will run as soon as 3b-parallel-i finishes
-      "nomad-pipeline/dependencies" = "3b-parallel-ii"
+      "nomad-pipeline.dependencies" = "3b-parallel-ii"
     }
 
     task "dependent" {

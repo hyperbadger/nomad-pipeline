@@ -23,6 +23,10 @@ job "dynamic" {
   datacenters = var.datacenters
   type        = "batch"
 
+  meta = {
+    "nomad-pipeline.enabled" = "true"
+  }
+
   group "▶️" {
     task "init" {
       driver = "docker"
@@ -46,8 +50,8 @@ job "dynamic" {
     count = 0
 
     meta = {
-      "nomad-pipeline/root"          = "true"
-      "nomad-pipeline/dynamic-tasks" = "tasks/*"
+      "nomad-pipeline.root"          = "true"
+      "nomad-pipeline.dynamic-tasks" = "tasks/*"
     }
 
     task "generate-tasks" {
@@ -65,8 +69,8 @@ job "dynamic" {
             "Name": "${TASK_NAME}",
             "Count": 0,
             "Meta": {
-              "nomad-pipeline/root": "true",
-              "nomad-pipeline/next": "3-last"
+              "nomad-pipeline.root": "true",
+              "nomad-pipeline.next": "3-last"
             },
             "Tasks": [
               {
@@ -92,8 +96,8 @@ job "dynamic" {
             "Name": "3-last",
             "Count": 0,
             "Meta": {
-              "nomad-pipeline/root": "true",
-              "nomad-pipeline/dependencies": "2a-echo,2b-echo"
+              "nomad-pipeline.root": "true",
+              "nomad-pipeline.dependencies": "2a-echo,2b-echo"
             },
             "Tasks": [
               {

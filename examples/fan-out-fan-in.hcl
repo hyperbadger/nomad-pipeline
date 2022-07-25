@@ -23,6 +23,10 @@ job "fan-out-fan-in" {
   datacenters = var.datacenters
   type        = "batch"
 
+  meta = {
+    "nomad-pipeline.enabled" = "true"
+  }
+
   group "▶️" {
     task "init" {
       driver = "docker"
@@ -46,8 +50,8 @@ job "fan-out-fan-in" {
     count = 0
 
     meta = {
-      "nomad-pipeline/root" = "true"
-      "nomad-pipeline/next" = "2-do-work"
+      "nomad-pipeline.root" = "true"
+      "nomad-pipeline.next" = "2-do-work"
     }
 
     task "submit" {
@@ -76,8 +80,8 @@ job "fan-out-fan-in" {
     count = 0
 
     meta = {
-      "nomad-pipeline/count" = "5"
-      "nomad-pipeline/next"  = "3-process-output"
+      "nomad-pipeline.count" = "5"
+      "nomad-pipeline.next"  = "3-process-output"
     }
 
     scaling {
@@ -112,7 +116,7 @@ job "fan-out-fan-in" {
     count = 0
 
     meta = {
-      "nomad-pipeline/dependencies" = "2-do-work"
+      "nomad-pipeline.dependencies" = "2-do-work"
     }
 
     task "process" {

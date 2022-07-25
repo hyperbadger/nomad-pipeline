@@ -23,6 +23,10 @@ job "dependencies" {
   datacenters = var.datacenters
   type        = "batch"
 
+  meta = {
+    "nomad-pipeline.enabled" = "true"
+  }
+
   group "▶️" {
     task "init" {
       driver = "docker"
@@ -46,8 +50,8 @@ job "dependencies" {
     count = 0
 
     meta = {
-      "nomad-pipeline/root" = "true"
-      "nomad-pipeline/next" = "2-dependent"
+      "nomad-pipeline.root" = "true"
+      "nomad-pipeline.next" = "2-dependent"
     }
 
     task "normal" {
@@ -76,8 +80,8 @@ job "dependencies" {
     count = 0
 
     meta = {
-      "nomad-pipeline/root" = "true"
-      "nomad-pipeline/next" = "2-dependent"
+      "nomad-pipeline.root" = "true"
+      "nomad-pipeline.next" = "2-dependent"
     }
 
     task "normal" {
@@ -106,8 +110,8 @@ job "dependencies" {
     count = 0
 
     meta = {
-      "nomad-pipeline/root" = "true"
-      "nomad-pipeline/next" = "2-dependent"
+      "nomad-pipeline.root" = "true"
+      "nomad-pipeline.next" = "2-dependent"
     }
 
     task "normal" {
@@ -136,7 +140,7 @@ job "dependencies" {
     count = 0
 
     meta = {
-      "nomad-pipeline/dependencies" = "1a-task, 1b-task, 1c-task"
+      "nomad-pipeline.dependencies" = "1a-task, 1b-task, 1c-task"
     }
 
     task "dependent" {

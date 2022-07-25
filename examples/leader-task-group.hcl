@@ -23,6 +23,10 @@ job "leader-task-group" {
   datacenters = var.datacenters
   type        = "batch"
 
+  meta = {
+    "nomad-pipeline.enabled" = "true"
+  }
+
   group "▶️" {
     task "init" {
       driver = "docker"
@@ -46,8 +50,8 @@ job "leader-task-group" {
     count = 0
 
     meta = {
-      "nomad-pipeline/root"   = "true"
-      "nomad-pipeline/leader" = "true"
+      "nomad-pipeline.root"   = "true"
+      "nomad-pipeline.leader" = "true"
     }
 
     task "some-process" {
@@ -75,7 +79,7 @@ job "leader-task-group" {
     count = 0
 
     meta = {
-      "nomad-pipeline/root" = "true"
+      "nomad-pipeline.root" = "true"
     }
 
     task "forever-run" {

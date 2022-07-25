@@ -18,16 +18,20 @@ import (
 )
 
 const (
-	countTag           = "nomad-pipeline/count"
-	dependenciesTag    = "nomad-pipeline/dependencies"
-	dynamicMemoryMBTag = "nomad-pipeline/dynamic-memory-mb"
-	dynamicTasksTag    = "nomad-pipeline/dynamic-tasks"
-	leaderTag          = "nomad-pipeline/leader"
-	nextTag            = "nomad-pipeline/next"
-	rootTag            = "nomad-pipeline/root"
+	TagPrefix          = "nomad-pipeline"
+	TagEnabled         = TagPrefix + ".enabled"
+	TagCount           = TagPrefix + ".count"
+	TagDependencies    = TagPrefix + ".dependencies"
+	TagDynamicMemoryMB = TagPrefix + ".dynamic-memory-mb"
+	TagDynamicTasks    = TagPrefix + ".dynamic-tasks"
+	TagLeader          = TagPrefix + ".leader"
+	TagNext            = TagPrefix + ".next"
+	TagRoot            = TagPrefix + ".root"
 
 	// internal tags, not  meant to be set by user
-	_parentTask = "nomad-pipeline/_parent-task"
+	TagInternalPrefix = TagPrefix + ".internal"
+	TagParentTask     = TagInternalPrefix + ".parent-task"
+	TagParentPipeline = TagInternalPrefix + ".parent-pipeline"
 )
 
 func i2p(i int) *int {
@@ -168,7 +172,7 @@ func successState(state *nomad.TaskState) bool {
 	return true
 }
 
-func tgDone(allocs []*nomad.AllocationListStub, groups []string, success bool) bool {
+func TgDone(allocs []*nomad.AllocationListStub, groups []string, success bool) bool {
 	if len(groups) == 0 || len(allocs) == 0 {
 		return false
 	}
@@ -349,7 +353,7 @@ type PipelineController struct {
 }
 
 func NewPipelineController(cPath string) *PipelineController {
-	dc := PipelineController{
+	pc := PipelineController{
 		JobID:     os.Getenv("NOMAD_JOB_ID"),
 		GroupName: os.Getenv("NOMAD_GROUP_NAME"),
 		TaskName:  os.Getenv("NOMAD_TASK_NAME"),
@@ -364,19 +368,19 @@ func NewPipelineController(cPath string) *PipelineController {
 		log.Fatalf("error creating client: %v", err)
 	}
 
-	dc.Nomad = nClient
-	dc.JobsAPI = nClient.Jobs()
-	dc.AllocsAPI = nClient.Allocations()
+	pc.Nomad = nClient
+	pc.JobsAPI = nClient.Jobs()
+	pc.AllocsAPI = nClient.Allocations()
 
-	log.Infof("getting job: %q", dc.JobID)
-	job, _, err := dc.JobsAPI.Info(dc.JobID, &nomad.QueryOptions{})
+	log.Infof("getting job: %q", pc.JobID)
+	job, _, err := pc.JobsAPI.Info(pc.JobID, &nomad.QueryOptions{})
 	if err != nil {
 		log.Fatalf("error getting job: %v", err)
 	}
 
-	dc.Job = job
+	pc.Job = job
 
-	return &dc
+	return &pc
 }
 
 func (pc *PipelineController) UpdateJob() error {
@@ -431,17 +435,17 @@ func (pc *PipelineController) ProcessTaskGroups(filters ...map[string]string) ([
 			Name: *tGroup.Name,
 		}
 
-		if next := lookupMetaTagStr(tGroup.Meta, nextTag); len(next) > 0 {
+		if next := lookupMetaTagStr(tGroup.Meta, TagNext); len(next) > 0 {
 			task.Next = split(next)
 		}
 
-		if dependencies := lookupMetaTagStr(tGroup.Meta, dependenciesTag); len(dependencies) > 0 {
+		if dependencies := lookupMetaTagStr(tGroup.Meta, TagDependencies); len(dependencies) > 0 {
 			task.Dependencies = split(dependencies)
 		}
 
 		tasks = append(tasks, task)
 
-		root, err := lookupMetaTagBool(tGroup.Meta, rootTag)
+		root, err := lookupMetaTagBool(tGroup.Meta, TagRoot)
 		if err != nil {
 			return nil, fmt.Errorf("error parsing root tag: %v", err)
 		}
@@ -451,7 +455,7 @@ func (pc *PipelineController) ProcessTaskGroups(filters ...map[string]string) ([
 
 		// not sure if this should be here
 		for _, t := range tGroup.Tasks {
-			mem, err := lookupMetaTagInt(t.Meta, dynamicMemoryMBTag)
+			mem, err := lookupMetaTagInt(t.Meta, TagDynamicMemoryMB)
 			if err != nil {
 				return nil, fmt.Errorf("error parsing dynamic memory tag: %v", err)
 			}
@@ -510,7 +514,7 @@ func (pc *PipelineController) ProcessTaskGroups(filters ...map[string]string) ([
 
 		nArgs := append([]string{"agent", "next"}, task.Next...)
 
-		if dynTasks := lookupMetaTagStr(tGroup.Meta, dynamicTasksTag); len(dynTasks) > 0 {
+		if dynTasks := lookupMetaTagStr(tGroup.Meta, TagDynamicTasks); len(dynTasks) > 0 {
 			nArgs = append([]string{"agent", "next", "--dynamic-tasks", dynTasks}, task.Next...)
 		}
 
@@ -539,7 +543,7 @@ func (pc *PipelineController) Init() bool {
 	}
 
 	if len(rTasks) == 0 {
-		log.Fatalf("couldn't find a root task group, need to set the root meta tag (%v)", rootTag)
+		log.Fatalf("couldn't find a root task group, need to set the root meta tag (%v)", TagRoot)
 	}
 
 	return pc.Next(rTasks, "")
@@ -553,7 +557,7 @@ func (pc *PipelineController) Wait(groups []string) {
 		log.Fatalf("error getting job allocations: %v", err)
 	}
 
-	if tgDone(jAllocs, groups, true) {
+	if TgDone(jAllocs, groups, true) {
 		log.Info("all dependent task groups finished successfully")
 		return
 	}
@@ -649,7 +653,7 @@ func (pc *PipelineController) Wait(groups []string) {
 					allocList = append(allocList, v)
 				}
 
-				if tgDone(allocList, groups, true) {
+				if TgDone(allocList, groups, true) {
 					log.Info("all dependent task groups finished successfully")
 					return
 				}
@@ -676,7 +680,7 @@ func (pc *PipelineController) Next(groups []string, dynTasks string) bool {
 		log.Fatalf("could not find current group (%v), this shouldn't happen!", pc.GroupName)
 	}
 
-	leader, err := lookupMetaTagBool(cGroup.Meta, leaderTag)
+	leader, err := lookupMetaTagBool(cGroup.Meta, TagLeader)
 	if err != nil {
 		log.Warnf("error parsing leader, default to false: %v", err)
 	}
@@ -732,12 +736,12 @@ func (pc *PipelineController) Next(groups []string, dynTasks string) bool {
 		for _, _tg := range tgs {
 			tg := _tg
 
-			tg.SetMeta(_parentTask, pc.GroupName)
+			tg.SetMeta(TagParentTask, pc.GroupName)
 			pc.Job.AddTaskGroup(&tg)
 		}
 
 		filter := map[string]string{
-			_parentTask: pc.GroupName,
+			TagParentTask: pc.GroupName,
 		}
 
 		rTasks, err := pc.ProcessTaskGroups(filter)
@@ -746,7 +750,7 @@ func (pc *PipelineController) Next(groups []string, dynTasks string) bool {
 		}
 
 		if len(rTasks) == 0 {
-			log.Fatalf("no root task group found, atleast one task in dynamic tasks must have root meta tag (%v)", rootTag)
+			log.Fatalf("no root task group found, atleast one task in dynamic tasks must have root meta tag (%v)", TagRoot)
 		}
 
 		groups = append(groups, rTasks...)
@@ -758,14 +762,14 @@ func (pc *PipelineController) Next(groups []string, dynTasks string) bool {
 			log.Warnf("could not find next group %v", group)
 			continue
 		}
-		if tgAllocated(jAllocs, []string{group}) && !tgDone(jAllocs, []string{group}, false) {
+		if tgAllocated(jAllocs, []string{group}) && !TgDone(jAllocs, []string{group}, false) {
 			log.Warnf("next group already has allocations, skipping trigger: %v", group)
 			continue
 		}
 
 		tg.Count = i2p(1)
 
-		count, err := lookupMetaTagInt(tg.Meta, countTag)
+		count, err := lookupMetaTagInt(tg.Meta, TagCount)
 		if err != nil {
 			log.Warn("error parsing count tag, defaulting to 1: %v", err)
 			count = 1
@@ -775,7 +779,7 @@ func (pc *PipelineController) Next(groups []string, dynTasks string) bool {
 		}
 	}
 
-	if pc.TaskName == "init" || tgDone(jAllocs, []string{pc.GroupName}, true) {
+	if pc.TaskName == "init" || TgDone(jAllocs, []string{pc.GroupName}, true) {
 		cGroup.Count = i2p(0)
 	}
 
