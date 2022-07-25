@@ -7,7 +7,7 @@ require (
 	github.com/gin-gonic/gin v1.8.1
 	github.com/hashicorp/nomad/api v0.0.0-20220617091522-08811312cc87
 	github.com/sirupsen/logrus v1.8.1
-	github.com/spf13/cobra v1.4.0
+	github.com/spf13/cobra v1.5.0
 	go.uber.org/zap v1.21.0
 	gopkg.in/yaml.v3 v3.0.1
 )
