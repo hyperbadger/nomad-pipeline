@@ -3,7 +3,7 @@ module github.com/hyperbadger/nomad-pipeline
 go 1.18
 
 require (
-	github.com/gin-contrib/zap v0.0.2
+	github.com/gin-contrib/zap v0.1.0
 	github.com/gin-gonic/gin v1.8.1
 	github.com/hashicorp/nomad/api v0.0.0-20220617091522-08811312cc87
 	github.com/sirupsen/logrus v1.9.0
@@ -33,6 +33,8 @@ require (
 	github.com/pelletier/go-toml/v2 v2.0.1 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
 	github.com/ugorji/go/codec v1.2.7 // indirect
+	go.opentelemetry.io/otel v1.10.0 // indirect
+	go.opentelemetry.io/otel/trace v1.10.0 // indirect
 	go.uber.org/atomic v1.7.0 // indirect
 	go.uber.org/multierr v1.6.0 // indirect
 	golang.org/x/crypto v0.0.0-20210711020723-a769d52b0f97 // indirect
