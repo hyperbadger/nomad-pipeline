@@ -8,7 +8,7 @@ require (
 	github.com/hashicorp/nomad/api v0.0.0-20220617091522-08811312cc87
 	github.com/sirupsen/logrus v1.9.0
 	github.com/spf13/cobra v1.5.0
-	go.uber.org/zap v1.21.0
+	go.uber.org/zap v1.23.0
 	gopkg.in/yaml.v3 v3.0.1
 )
 
@@ -32,7 +32,6 @@ require (
 	github.com/modern-go/reflect2 v1.0.2 // indirect
 	github.com/pelletier/go-toml/v2 v2.0.1 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
-	github.com/stretchr/testify v1.7.2 // indirect
 	github.com/ugorji/go/codec v1.2.7 // indirect
 	go.uber.org/atomic v1.7.0 // indirect
 	go.uber.org/multierr v1.6.0 // indirect
