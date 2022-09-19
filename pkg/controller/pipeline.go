@@ -297,12 +297,10 @@ func lookupMetaTagBool(meta map[string]string, tag string) (bool, error) {
 
 func loadConfig(cPath string) *Config {
 	cBytes, err := os.ReadFile(cPath)
-
 	if errors.Is(err, os.ErrNotExist) {
 		log.Warnf("config file doesn't exist (path: %v)", cPath)
 		return nil
 	}
-
 	if err != nil {
 		log.Warnf("error loading config (path: %v): %v", cPath, err)
 		return nil

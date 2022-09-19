@@ -1,9 +1,7 @@
 package api
 
 import (
-	"fmt"
 	"net/http"
-	"os"
 	"time"
 
 	ginzap "github.com/gin-contrib/zap"
@@ -17,20 +15,13 @@ type PipelineServer struct {
 	logger *zap.SugaredLogger
 }
 
-func NewPipelineServer(logger *zap.SugaredLogger) (*PipelineServer, error) {
-	nClient, err := nomad.NewClient(&nomad.Config{
-		Address: os.Getenv("NOMAD_ADDR"),
-	})
-	if err != nil {
-		return nil, fmt.Errorf("error creating client: %w", err)
-	}
-
+func NewPipelineServer(nClient *nomad.Client, logger *zap.SugaredLogger) *PipelineServer {
 	ps := PipelineServer{
 		nomad:  nClient,
 		logger: logger,
 	}
 
-	return &ps, nil
+	return &ps
 }
 
 func (ps *PipelineServer) NewHTTPServer(addr string) *http.Server {
