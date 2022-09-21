@@ -117,7 +117,6 @@ func (s3t *S3Trigger) Run(ctx context.Context, f func(Dispatch) error, errCh cha
 
 		go func() {
 			defer wg.Done()
-			// defer msg.Ack()
 
 			var event S3TriggerEvent
 			err := json.Unmarshal(msg.Body, &event)

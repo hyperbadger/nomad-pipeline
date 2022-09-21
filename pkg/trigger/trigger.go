@@ -27,8 +27,8 @@ func containsStr(match string, strs []string) bool {
 }
 
 type Dispatch struct {
-	Meta    map[string]string `yaml:"meta"`
-	Payload string            `yaml:"payload"`
+	Meta    map[string]string `yaml:"meta" json:"meta"`
+	Payload string            `yaml:"payload" json:"payload"`
 }
 
 type Triggerer interface {

@@ -2,7 +2,9 @@ package trigger
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"sync"
 
 	"gocloud.dev/pubsub"
 )
@@ -26,9 +28,44 @@ func (spst *SimplePubSubTrigger) Key() string {
 }
 
 func (spst *SimplePubSubTrigger) Run(ctx context.Context, f func(Dispatch) error, errCh chan<- error) {
+	var wg sync.WaitGroup
 
+	for {
+		if err := ctx.Err(); err != nil {
+			errCh <- err
+			break
+		}
+
+		msg, err := spst.Sub.Receive(ctx)
+		if err != nil {
+			errCh <- err
+			break
+		}
+
+		wg.Add(1)
+
+		go func() {
+			defer wg.Done()
+
+			d := Dispatch{}
+			err := json.Unmarshal(msg.Body, &d)
+			if err != nil {
+				errCh <- fmt.Errorf("error unmarshaling message: %w", err)
+				return
+			}
+
+			err = f(d)
+			if err != nil {
+				errCh <- fmt.Errorf("trigger callback failed: %w", err)
+				return
+			}
+			msg.Ack()
+		}()
+	}
+
+	wg.Wait()
 }
 
 func (spst *SimplePubSubTrigger) Shutdown(ctx context.Context) error {
-	return nil
+	return spst.Sub.Shutdown(ctx)
 }
