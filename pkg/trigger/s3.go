@@ -48,7 +48,7 @@ type S3TriggerEvent struct {
 			} `json:"bucket"`
 			Object struct {
 				Key       string `json:"key"`
-				Size      string `json:"size"`
+				Size      int    `json:"size"`
 				ETag      string `json:"eTag"`
 				VersionID string `json:"versionId"`
 				Sequencer string `json:"sequencer"`
