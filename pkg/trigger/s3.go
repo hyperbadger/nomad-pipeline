@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"gocloud.dev/blob"
+	_ "gocloud.dev/blob/s3blob"
 	"gocloud.dev/pubsub"
 	_ "gocloud.dev/pubsub/awssnssqs"
 	"gopkg.in/yaml.v3"
