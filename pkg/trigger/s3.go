@@ -12,6 +12,7 @@ import (
 
 	"gocloud.dev/blob"
 	"gocloud.dev/pubsub"
+	_ "gocloud.dev/pubsub/awssnssqs"
 	"gopkg.in/yaml.v3"
 )
 

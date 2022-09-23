@@ -95,7 +95,8 @@ func (t *Trigger) Key() string {
 	h := sha256.New()
 	h.Write([]byte(k))
 	s := h.Sum(nil)
-	return string(s)
+	t.key = string(s)
+	return t.key
 }
 
 func (t *Trigger) Run(ctx context.Context, jobsApi *nomad.Jobs) {
