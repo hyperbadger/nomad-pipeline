@@ -164,9 +164,10 @@ type TriggerManager struct {
 
 func NewTriggerManager(ctx context.Context, tPath string, nClient *nomad.Client, logger *zap.SugaredLogger) (*TriggerManager, error) {
 	tm := TriggerManager{
-		jobsApi: nClient.Jobs(),
-		path:    tPath,
-		logger:  logger,
+		triggers: make(map[string]*Trigger),
+		path:     tPath,
+		jobsApi:  nClient.Jobs(),
+		logger:   logger,
 	}
 
 	return &tm, nil
