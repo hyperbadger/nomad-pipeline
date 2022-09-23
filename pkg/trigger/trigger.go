@@ -3,6 +3,7 @@ package trigger
 import (
 	"context"
 	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"os"
@@ -95,7 +96,7 @@ func (t *Trigger) Key() string {
 	h := sha256.New()
 	h.Write([]byte(k))
 	s := h.Sum(nil)
-	t.key = string(s)
+	t.key = hex.EncodeToString(s)
 	return t.key
 }
 
