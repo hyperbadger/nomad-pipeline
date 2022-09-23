@@ -134,6 +134,7 @@ func (s3t *S3Trigger) Run(ctx context.Context, f func(Dispatch) error, errCh cha
 			}
 
 			d := Dispatch{}
+			d.Meta = make(map[string]string)
 
 			dir := path.Dir(oPath)
 			base := path.Base(oPath)
