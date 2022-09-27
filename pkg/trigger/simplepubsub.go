@@ -27,7 +27,7 @@ func (spst *SimplePubSubTrigger) Key() string {
 	return spst.PubSubUrl
 }
 
-func (spst *SimplePubSubTrigger) Run(ctx context.Context, f func(Dispatch) error, errCh chan<- error) {
+func (spst *SimplePubSubTrigger) Run(ctx context.Context, f func(*Dispatch) error, errCh chan<- error) {
 	var wg sync.WaitGroup
 
 	for {
@@ -47,8 +47,8 @@ func (spst *SimplePubSubTrigger) Run(ctx context.Context, f func(Dispatch) error
 		go func() {
 			defer wg.Done()
 
-			d := Dispatch{}
-			err := json.Unmarshal(msg.Body, &d)
+			d := NewDispatch()
+			err := json.Unmarshal(msg.Body, d)
 			if err != nil {
 				errCh <- fmt.Errorf("error unmarshaling message: %w", err)
 				return

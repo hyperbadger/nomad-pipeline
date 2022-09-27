@@ -32,10 +32,17 @@ type Dispatch struct {
 	Payload string            `yaml:"payload" json:"payload"`
 }
 
+func NewDispatch() *Dispatch {
+	d := Dispatch{
+		Meta: make(map[string]string),
+	}
+	return &d
+}
+
 type Triggerer interface {
 	Init(context.Context) error
 	Key() string
-	Run(context.Context, func(Dispatch) error, chan<- error)
+	Run(context.Context, func(*Dispatch) error, chan<- error)
 	Shutdown(context.Context) error
 }
 
@@ -107,7 +114,7 @@ func (t *Trigger) Run(ctx context.Context, jobsApi *nomad.Jobs) {
 	rctx, rcancel := context.WithCancel(ctx)
 	defer rcancel()
 
-	f := func(d Dispatch) error {
+	f := func(d *Dispatch) error {
 		op := func() error {
 			resp, wm, err := jobsApi.Dispatch(t.JobID, d.Meta, []byte(d.Payload), &nomad.WriteOptions{})
 			if err != nil {

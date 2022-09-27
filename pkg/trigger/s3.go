@@ -100,7 +100,7 @@ func (s3t *S3Trigger) Key() string {
 	return s3t.ObjectPath + "-" + s3t.SQSUrl
 }
 
-func (s3t *S3Trigger) Run(ctx context.Context, f func(Dispatch) error, errCh chan<- error) {
+func (s3t *S3Trigger) Run(ctx context.Context, f func(*Dispatch) error, errCh chan<- error) {
 	var wg sync.WaitGroup
 
 	for {
@@ -133,8 +133,7 @@ func (s3t *S3Trigger) Run(ctx context.Context, f func(Dispatch) error, errCh cha
 				return
 			}
 
-			d := Dispatch{}
-			d.Meta = make(map[string]string)
+			d := NewDispatch()
 
 			dir := path.Dir(oPath)
 			base := path.Base(oPath)
@@ -154,7 +153,7 @@ func (s3t *S3Trigger) Run(ctx context.Context, f func(Dispatch) error, errCh cha
 				}
 			}
 			if len(sBytes) > 0 {
-				err = yaml.Unmarshal(sBytes, &d)
+				err = yaml.Unmarshal(sBytes, d)
 				if err != nil {
 					errCh <- fmt.Errorf("error unmarshalling settings file, continuing without settings: %w", err)
 				}
