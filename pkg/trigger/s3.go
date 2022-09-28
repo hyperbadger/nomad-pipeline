@@ -20,6 +20,16 @@ import (
 // generated using https://mholt.github.io/json-to-go/ using example from
 // https://docs.amazonaws.cn/en_us/AmazonS3/latest/userguide/notification-content-structure.html
 type S3TriggerEvent struct {
+	// this section was seperately added to handle s3:TestEvent messages
+	// all of these fields will not be set for all other standard s3 events
+	// see https://www.mikulskibartosz.name/what-is-s3-test-event/ for more info
+	Service   string    `json:"Service"`
+	Event     string    `json:"Event"`
+	Time      time.Time `json:"Time"`
+	Bucket    string    `json:"Bucket"`
+	RequestID string    `json:"RequestId"`
+	HostID    string    `json:"HostId"`
+
 	Records []struct {
 		EventVersion string    `json:"eventVersion"`
 		EventSource  string    `json:"eventSource"`
@@ -64,14 +74,15 @@ type S3TriggerEvent struct {
 }
 
 type S3Trigger struct {
-	ObjectPath  string `yaml:"object_path"`
-	MetaKey     string `yaml:"meta_key"`
-	SQSUrl      string `yaml:"sqs_url"`
-	BucketUrl   string `yaml:"bucket_url"`
-	SettingsExt string `yaml:"settings_ext"`
-	Sub         *pubsub.Subscription
-	Bucket      *blob.Bucket
-	regex       *regexp.Regexp
+	ObjectFilter string `yaml:"object_filter"`
+	MetaKey      string `yaml:"meta_key"`
+	SQSUrl       string `yaml:"sqs_url"`
+	BucketUrl    string `yaml:"bucket_url"`
+	SettingsExt  string `yaml:"settings_ext"`
+	AckNoMatch   bool   `yaml:"ack_no_match"`
+	Sub          *pubsub.Subscription
+	Bucket       *blob.Bucket
+	regex        *regexp.Regexp
 }
 
 func (s3t *S3Trigger) Init(ctx context.Context) error {
@@ -85,7 +96,7 @@ func (s3t *S3Trigger) Init(ctx context.Context) error {
 		return fmt.Errorf("error opening bucket: %w", err)
 	}
 	s3t.Bucket = bucket
-	r, err := regexp.Compile(s3t.ObjectPath)
+	r, err := regexp.Compile(s3t.ObjectFilter)
 	if err != nil {
 		return fmt.Errorf("error compiling object path regex: %w", err)
 	}
@@ -97,7 +108,7 @@ func (s3t *S3Trigger) Init(ctx context.Context) error {
 }
 
 func (s3t *S3Trigger) Key() string {
-	return s3t.ObjectPath + "-" + s3t.SQSUrl
+	return s3t.ObjectFilter + "-" + s3t.SQSUrl
 }
 
 func (s3t *S3Trigger) Run(ctx context.Context, f func(*Dispatch) error, errCh chan<- error) {
@@ -127,9 +138,26 @@ func (s3t *S3Trigger) Run(ctx context.Context, f func(*Dispatch) error, errCh ch
 				return
 			}
 
+			// see https://www.mikulskibartosz.name/what-is-s3-test-event/ for more info
+			// we should just ack the TestEvent and not continue with processing
+			if event.Event == "s3:TestEvent" {
+				msg.Ack()
+				return
+			}
+
+			// according to https://stackoverflow.com/a/53845382 we should only recieve a single
+			// record in one event
+			if r := len(event.Records); r != 1 {
+				errCh <- fmt.Errorf("expecting a single record in s3 event, got %v events", r)
+				return
+			}
+
 			oPath := event.Records[0].S3.Object.Key
 			match := s3t.regex.Match([]byte(oPath))
 			if !match {
+				if s3t.AckNoMatch {
+					msg.Ack()
+				}
 				return
 			}
 
