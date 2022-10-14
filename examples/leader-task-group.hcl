@@ -35,8 +35,7 @@ job "leader-task-group" {
         image = var.image
         args  = ["agent", "init"]
 
-        extra_hosts    = var.docker_extra_hosts
-        auth_soft_fail = true
+        extra_hosts = var.docker_extra_hosts
       }
 
       env {
