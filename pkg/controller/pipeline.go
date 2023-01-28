@@ -363,6 +363,8 @@ func NewPipelineController(cPath string) *PipelineController {
 
 	nClient, err := nomad.NewClient(&nomad.Config{
 		Address: os.Getenv("NOMAD_ADDR"),
+		Namespace: os.Getenv("NOMAD_NAMESPACE"),
+		Region: os.Getenv("NOMAD_REGION"),
 	})
 	if err != nil {
 		log.Fatalf("error creating client: %v", err)
