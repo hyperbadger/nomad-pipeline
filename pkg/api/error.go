@@ -17,6 +17,8 @@ type Error struct {
 
 const (
 	ErrorTypeNomadUpstream = "nomad_upstream"
+	ErrorTypeNotFound      = "not_found"
+	ErrorBadRequest        = "bad_request"
 )
 
 type ErrorOption func(*Error)

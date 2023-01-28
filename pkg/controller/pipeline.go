@@ -20,6 +20,7 @@ import (
 const (
 	TagPrefix          = "nomad-pipeline"
 	TagEnabled         = TagPrefix + ".enabled"
+	TagName            = TagPrefix + ".name"
 	TagCount           = TagPrefix + ".count"
 	TagDependencies    = TagPrefix + ".dependencies"
 	TagDynamicMemoryMB = TagPrefix + ".dynamic-memory-mb"

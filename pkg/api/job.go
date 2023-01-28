@@ -96,7 +96,7 @@ func isChild(ofParent ...string) getJobsFilter {
 			parentID = id
 		}
 
-		if job.ParentID != nil {
+		if job.ParentID != nil && len(*job.ParentID) > 0 {
 			parentID = *job.ParentID
 		}
 
@@ -153,10 +153,24 @@ func notParam(job *nomad.JobListStub) bool {
 	return !job.ParameterizedJob
 }
 
-func (ps *PipelineServer) listJobs(filters ...listJobsFilter) ([]NomadJob, *Error) {
+type queryOptions func(*nomad.QueryOptions)
+
+func basicQuery(_ *nomad.QueryOptions) {
+}
+
+func queryWithPrefix(prefix string) func(*nomad.QueryOptions) {
+	return func(qo *nomad.QueryOptions) {
+		qo.Prefix = prefix
+	}
+}
+
+func (ps *PipelineServer) listJobs(qOpts queryOptions, filters ...listJobsFilter) ([]NomadJob, *Error) {
 	jobsAPI := ps.nomad.Jobs()
 
-	allJobs, _, err := jobsAPI.List(&nomad.QueryOptions{})
+	qo := &nomad.QueryOptions{}
+	qOpts(qo)
+
+	allJobs, _, err := jobsAPI.List(qo)
 	if err != nil {
 		httpErr := NewError(
 			WithType(ErrorTypeNomadUpstream),
