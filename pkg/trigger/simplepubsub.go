@@ -6,15 +6,18 @@ import (
 	"fmt"
 	"sync"
 
+	"go.uber.org/zap"
 	"gocloud.dev/pubsub"
 )
 
 type SimplePubSubTrigger struct {
 	PubSubUrl string `yaml:"pubsub_url"`
 	Sub       *pubsub.Subscription
+	logger    *zap.SugaredLogger
 }
 
-func (spst *SimplePubSubTrigger) Init(ctx context.Context) error {
+func (spst *SimplePubSubTrigger) Init(ctx context.Context, logger *zap.SugaredLogger) error {
+	spst.logger = logger
 	sub, err := pubsub.OpenSubscription(ctx, spst.PubSubUrl)
 	if err != nil {
 		return fmt.Errorf("error subscribing to sqs: %w", err)

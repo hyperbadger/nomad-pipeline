@@ -77,18 +77,48 @@ job "example-job" {
 
 **Requirements**
 
-- Docker (with default `bridge` network)
+- Docker
 - Nomad
-- jq
 
-**Steps**
+> To make it simple to run the examples, we are running using `network_mode="host"`, this means that the example containers will be running in the host networking namespace and have access to localhost - where Nomad should be listening on.
 
-1. Find your Docker `bridge` network gateway IP - `export DOCKER_GATEWAY_IP=$(docker network inspect bridge | jq -r ".[].IPAM.Config[].Gateway")`
-1. Start Nomad in dev mode - `nomad agent -dev -bind "${DOCKER_GATEWAY_IP}"`
-1. Ensure Nomad has started by visiting `echo "http://${DOCKER_GATEWAY_IP}:4646"`
-1. Set `NOMAD_ADDR` for the Nomad CLI to access Nomad - `export NOMAD_ADDR="http://${DOCKER_GATEWAY_IP}:4646"`
+**Scenario A: Running Nomad agent in dev mode**
+
+1. Start Nomad in dev mode - `nomad agent -dev` - tip: if you want to access to Nomad from other machines or you don't have direct access to `localhost`, you can run with `-bind 0.0.0.0`
+1. Ensure Nomad has started by visiting `echo "http://localhost:4646"` or replace `localhost` with the address of where Nomad is running
+1. Set `NOMAD_ADDR` for the Nomad CLI to access Nomad - `export NOMAD_ADDR="http://localhost:4646"` or replace `localhost` with the address of where Nomad is running
 1. Ensure Nomad CLI works - `nomad server members`
 1. Run any job in the examples/ directory - `nomad job run examples/happy-job.hcl`
+
+**Scenario B: Nomad running as a service on localhost**
+
+If installing Nomad using a package manager, it might already setup a service unit for you. On Ubuntu, you can check this by running `sudo systemctl status nomad`.
+
+1. Ensure the `raw_exec` driver is enabled - for simplicity the examples use `raw_exec` tasks. You should have the following in your Nomad config (eg. `/etc/nomad.d/nomad.hcl`):
+    ```hcl
+    plugin "raw_exec" {
+      config {
+        enabled = true
+      }
+    }
+    ```
+1. Set `NOMAD_ADDR` for the Nomad CLI to access Nomad - `export NOMAD_ADDR="http://localhost:4646"`
+1. Ensure Nomad CLI works - `nomad server members`
+1. Run any job in the examples/ directory - `nomad job run examples/happy-job.hcl`
+
+**Scenario C: Existing Nomad cluster**
+
+1. Set `NOMAD_ADDR` to your clusters Nomad server, this address should be accessible from containers running on the cluster - `export NOMAD_ADDR="https://nomad.hyperbadger.cloud"`
+1. Ensure Nomad CLI works - `nomad server members`
+1. Run any job in the examples/ directory - `nomad job run -var "nomad_addr=${NOMAD_ADDR}" examples/happy-job.hcl`
+
+### Bonus: Deploying the server component
+
+Some examples require the server component to be deployed.
+
+1. Ensure the correct `NOMAD_ADDR` is set using the instructions above
+1. `nomad job run -var "nomad_addr=${NOMAD_ADDR}" deploy/server.hcl`
+1. If your `NOMAD_ADDR` is `http://localhost:4646`, you should be able to test the newly deployed server by running `curl http://localhost:4656/jobs`
 
 ## Features
 
@@ -222,4 +252,45 @@ Although this feature was added specifically for use with the [`service` stanza]
 
 ![server](https://img.shields.io/badge/server-green)
 
-Having pipelines (or jobs) react to events can be a powerful mechanism for creating automated workflows. To start using this feature, it is important to have the server component running.
+Having pipelines (or jobs) react to events can be a powerful mechanism for creating automated workflows. To start using this feature, it is important to have the server component running. Triggers are configured using a yaml file which is passed into the server using the `--triggers-file` flag. Below is an example of a minimal triggers config file along with a job that would be triggered.
+
+```yaml
+- job_id: ffmpeg-transcode  # <-- job id of a parameterized job
+  type: s3  # <-- type of trigger, s3 trigger allows to listen to bucket changes
+  trigger:
+    sqs_url: awssqs://sqs.us-east-2.amazonaws.com/000000000000/videos-to-transcode-queue
+    meta_key: video_object_path  # <-- meta key of job to use to pass the path of object in event
+```
+
+```hcl
+job "ffmpeg-transcode" {
+
+  meta = {
+    "video_object_path" = ""  # configured using the `meta_key` option
+  }
+
+  parameterized {
+    meta_required = ["video_object_path"]
+  }
+
+  group "ffmpeg" {
+
+    task "transcode" {
+      driver = "docker"
+
+      config {
+        image = "hyperbadger/ffmpeg-transcoder"
+        args  = [
+          "-path",
+          "${NOMAD_META_video_object_path}"  # <-- NOMAD_META_video_object_path will be the path to the
+        ]                                    #     object that was created eg. incoming/test.mp4
+      }
+    }
+
+    ...
+  }
+  ...
+}
+```
+
+For more detailed examples and documentation on triggers, see [`triggers.md`](docs/triggers.md).

@@ -3,17 +3,7 @@ variable "datacenters" {
   default = ["dc1"]
 }
 
-variable "nomad_addr" {
-  type    = string
-  default = "http://host.docker.internal:4646"
-}
-
-variable "docker_extra_hosts" {
-  type    = list(string)
-  default = ["host.docker.internal:host-gateway"]
-}
-
-job "triggered" {
+job "triggered-job" {
   name        = "triggered-job"
   datacenters = var.datacenters
   type        = "batch"
@@ -24,10 +14,8 @@ job "triggered" {
 
   parameterized {
     payload       = "forbidden"
-    meta_required = [
-      "name",
-      "object_path",
-    ]
+    meta_optional = ["name"]
+    meta_required = ["object_path"]
   }
 
   group "basic-task" {

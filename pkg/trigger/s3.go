@@ -3,6 +3,7 @@ package trigger
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"path"
 	"regexp"
@@ -10,6 +11,7 @@ import (
 	"sync"
 	"time"
 
+	"go.uber.org/zap"
 	"gocloud.dev/blob"
 	_ "gocloud.dev/blob/s3blob"
 	"gocloud.dev/pubsub"
@@ -74,28 +76,41 @@ type S3TriggerEvent struct {
 }
 
 type S3Trigger struct {
-	ObjectFilter string `yaml:"object_filter"`
-	MetaKey      string `yaml:"meta_key"`
 	SQSUrl       string `yaml:"sqs_url"`
+	MetaKey      string `yaml:"meta_key"`
 	BucketUrl    string `yaml:"bucket_url"`
 	SettingsExt  string `yaml:"settings_ext"`
+	ObjectFilter string `yaml:"object_filter"`
 	AckNoMatch   bool   `yaml:"ack_no_match"`
-	Sub          *pubsub.Subscription
-	Bucket       *blob.Bucket
-	regex        *regexp.Regexp
+
+	Sub    *pubsub.Subscription
+	Bucket *blob.Bucket
+	regex  *regexp.Regexp
+	logger *zap.SugaredLogger
 }
 
-func (s3t *S3Trigger) Init(ctx context.Context) error {
+func (s3t *S3Trigger) Init(ctx context.Context, logger *zap.SugaredLogger) error {
+	s3t.logger = logger
 	sub, err := pubsub.OpenSubscription(ctx, s3t.SQSUrl)
 	if err != nil {
 		return fmt.Errorf("error subscribing to sqs: %w", err)
 	}
 	s3t.Sub = sub
-	bucket, err := blob.OpenBucket(ctx, s3t.BucketUrl)
-	if err != nil {
-		return fmt.Errorf("error opening bucket: %w", err)
+	if s3t.MetaKey == "" {
+		return errors.New("")
 	}
-	s3t.Bucket = bucket
+	if len(s3t.BucketUrl) > 0 {
+		bucket, err := blob.OpenBucket(ctx, s3t.BucketUrl)
+		if err != nil {
+			return fmt.Errorf("error opening bucket: %w", err)
+		}
+		s3t.Bucket = bucket
+	} else {
+		s3t.logger.Warn("bucket_url not set, per object settings won't be used")
+	}
+	if s3t.ObjectFilter == "" {
+		s3t.ObjectFilter = ".*"
+	}
 	r, err := regexp.Compile(s3t.ObjectFilter)
 	if err != nil {
 		return fmt.Errorf("error compiling object path regex: %w", err)
@@ -169,21 +184,23 @@ func (s3t *S3Trigger) Run(ctx context.Context, f func(*Dispatch) error, errCh ch
 			fName := strings.TrimSuffix(base, ext)
 			sPath := path.Join(dir, fName+s3t.SettingsExt)
 
-			exists, err := s3t.Bucket.Exists(ctx, sPath)
-			if err != nil {
-				errCh <- fmt.Errorf("error checking if settings file exists, continuing without settings: %w", err)
-			}
-			sBytes := make([]byte, 0)
-			if exists {
-				sBytes, err = s3t.Bucket.ReadAll(ctx, sPath)
+			if s3t.Bucket != nil {
+				exists, err := s3t.Bucket.Exists(ctx, sPath)
 				if err != nil {
-					errCh <- fmt.Errorf("settings file exists but error when reading, continuing without settings: %w", err)
+					errCh <- fmt.Errorf("error checking if settings file exists, continuing without settings: %w", err)
 				}
-			}
-			if len(sBytes) > 0 {
-				err = yaml.Unmarshal(sBytes, d)
-				if err != nil {
-					errCh <- fmt.Errorf("error unmarshalling settings file, continuing without settings: %w", err)
+				sBytes := make([]byte, 0)
+				if exists {
+					sBytes, err = s3t.Bucket.ReadAll(ctx, sPath)
+					if err != nil {
+						errCh <- fmt.Errorf("settings file exists but error when reading, continuing without settings: %w", err)
+					}
+				}
+				if len(sBytes) > 0 {
+					err = yaml.Unmarshal(sBytes, d)
+					if err != nil {
+						errCh <- fmt.Errorf("error unmarshalling settings file, continuing without settings: %w", err)
+					}
 				}
 			}
 

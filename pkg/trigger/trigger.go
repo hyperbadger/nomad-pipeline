@@ -40,7 +40,7 @@ func NewDispatch() *Dispatch {
 }
 
 type Triggerer interface {
-	Init(context.Context) error
+	Init(context.Context, *zap.SugaredLogger) error
 	Key() string
 	Run(context.Context, func(*Dispatch) error, chan<- error)
 	Shutdown(context.Context) error
@@ -92,7 +92,7 @@ func (t *Trigger) UnmarshalYAML(unmarshal func(interface{}) error) error {
 
 func (t *Trigger) Init(ctx context.Context, logger *zap.SugaredLogger) error {
 	t.logger = logger.With("job_id", t.JobID, "type", t.Type, "key", t.Key())
-	return t.Trigger.Init(ctx)
+	return t.Trigger.Init(ctx, t.logger)
 }
 
 func (t *Trigger) Key() string {
@@ -116,7 +116,7 @@ func (t *Trigger) Run(ctx context.Context, jobsApi *nomad.Jobs) {
 
 	f := func(d *Dispatch) error {
 		op := func() error {
-			resp, wm, err := jobsApi.Dispatch(t.JobID, d.Meta, []byte(d.Payload), &nomad.WriteOptions{})
+			resp, wm, err := jobsApi.Dispatch(t.JobID, d.Meta, []byte(d.Payload), "", &nomad.WriteOptions{})
 			if err != nil {
 				return err
 			}
