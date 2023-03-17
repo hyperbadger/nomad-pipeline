@@ -10,12 +10,7 @@ variable "image" {
 
 variable "nomad_addr" {
   type    = string
-  default = "http://host.docker.internal:4646"
-}
-
-variable "docker_extra_hosts" {
-  type    = list(string)
-  default = ["host.docker.internal:host-gateway"]
+  default = "http://localhost:4646"
 }
 
 job "happy" {
@@ -28,8 +23,6 @@ job "happy" {
   }
 
   group "▶️" {
-    count = 1
-
     task "init" {
       driver = "docker"
 
@@ -37,8 +30,7 @@ job "happy" {
         image = var.image
         args  = ["agent", "init"]
 
-        extra_hosts    = var.docker_extra_hosts
-        auth_soft_fail = true
+        network_mode = var.nomad_addr == "http://localhost:4646" ? "host" : null
       }
 
       env {

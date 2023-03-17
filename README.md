@@ -77,22 +77,56 @@ job "example-job" {
 
 **Requirements**
 
-- Docker (with default `bridge` network)
+- Docker
 - Nomad
-- jq
 
-**Steps**
+> To make it simple to run the examples, we are running using `network_mode="host"`, this means that the example containers will be running in the host networking namespace and have access to localhost - where Nomad should be listening on.
 
-1. Find your Docker `bridge` network gateway IP - `export DOCKER_GATEWAY_IP=$(docker network inspect bridge | jq -r ".[].IPAM.Config[].Gateway")`
-1. Start Nomad in dev mode - `nomad agent -dev -bind "${DOCKER_GATEWAY_IP}"`
-1. Ensure Nomad has started by visiting `echo "http://${DOCKER_GATEWAY_IP}:4646"`
-1. Set `NOMAD_ADDR` for the Nomad CLI to access Nomad - `export NOMAD_ADDR="http://${DOCKER_GATEWAY_IP}:4646"`
+**Scenario A: Running Nomad agent in dev mode**
+
+1. Start Nomad in dev mode - `nomad agent -dev` - tip: if you want to access to Nomad from other machines or you don't have direct access to `localhost`, you can run with `-bind 0.0.0.0`
+1. Ensure Nomad has started by visiting `echo "http://localhost:4646"` or replace `localhost` with the address of where Nomad is running
+1. Set `NOMAD_ADDR` for the Nomad CLI to access Nomad - `export NOMAD_ADDR="http://localhost:4646"` or replace `localhost` with the address of where Nomad is running
 1. Ensure Nomad CLI works - `nomad server members`
 1. Run any job in the examples/ directory - `nomad job run examples/happy-job.hcl`
 
-## Other features
+**Scenario B: Nomad running as a service on localhost**
+
+If installing Nomad using a package manager, it might already setup a service unit for you. On Ubuntu, you can check this by running `sudo systemctl status nomad`.
+
+1. Ensure the `raw_exec` driver is enabled - for simplicity the examples use `raw_exec` tasks. You should have the following in your Nomad config (eg. `/etc/nomad.d/nomad.hcl`):
+    ```hcl
+    plugin "raw_exec" {
+      config {
+        enabled = true
+      }
+    }
+    ```
+1. Set `NOMAD_ADDR` for the Nomad CLI to access Nomad - `export NOMAD_ADDR="http://localhost:4646"`
+1. Ensure Nomad CLI works - `nomad server members`
+1. Run any job in the examples/ directory - `nomad job run examples/happy-job.hcl`
+
+**Scenario C: Existing Nomad cluster**
+
+1. Set `NOMAD_ADDR` to your clusters Nomad server, this address should be accessible from containers running on the cluster - `export NOMAD_ADDR="https://nomad.hyperbadger.cloud"`
+1. Ensure Nomad CLI works - `nomad server members`
+1. Run any job in the examples/ directory - `nomad job run -var "nomad_addr=${NOMAD_ADDR}" examples/happy-job.hcl`
+
+### Bonus: Deploying the server component
+
+Some examples require the server component to be deployed.
+
+1. Ensure the correct `NOMAD_ADDR` is set using the instructions above
+1. `nomad job run -var "nomad_addr=${NOMAD_ADDR}" deploy/server.hcl`
+1. If your `NOMAD_ADDR` is `http://localhost:4646`, you should be able to test the newly deployed server by running `curl http://localhost:4656/jobs`
+
+## Features
+
+There are many features that work with just the 'init' task. This allows you to get started with minimal changes to your setup and it doesn't have any dependencies on other services. However there are more features which can only be accessed by running a server component a.k.a 'nomad-pipeline server'. Different features are highlighted below, for each feature, a badge is used to indicate if the feature requires just the init task, the server, or both.
 
 **Run tasks in parallel**
+
+![init](https://img.shields.io/badge/init-blue)
 
 ***Using dependencies***
 
@@ -132,6 +166,8 @@ Another way to implement the fan-out fan-in pattern is to have multiple instance
 See [`examples/fan-out-fan-in.hcl`](examples/fan-out-fan-in.hcl) for a more complete example.
 
 **Dynamic tasks**
+
+![init](https://img.shields.io/badge/init-blue)
 
 Dynamic tasks allows you to have a task that outputs more tasks 🤯. These tasks are then run as part of the job. This can open up the possibility to create some powerful pipelines. An example use case is for creating periodic splits of a longer task, if you have a task that processes 5 hours of some data, you could split the task into 5x 1 hour tasks and run them in parallel. This can be achieved by having an initial task that outputs the 5 split tasks as an output.
 
@@ -184,6 +220,8 @@ See [`dynamic-job.hcl`](examples/dynamic-job.hcl) for a more complete example.
 
 **Job Level Leader**
 
+![init](https://img.shields.io/badge/init-blue)
+
 Nomad currently allows you to set a [`leader`](https://www.nomadproject.io/docs/job-specification/task#leader) at the task level. This allows you to gracefully shutdown all other tasks in the group when the leader task exits.
 
 Using the `nomad-pipeline.leader` tag, you can get the same functionality at the job level. You can set the tag on a task group, and when that task group completes, all other task groups will be gracefully shutdown.
@@ -204,6 +242,55 @@ See [`leader-task-group.hcl`](examples/leader-task-group.hcl) for a more complet
 
 **URL Friendly Nomad Environment Variables**
 
+![init](https://img.shields.io/badge/init-blue)
+
 There are many useful [Nomad environment variables](https://www.nomadproject.io/docs/runtime/interpolation#interpreted_env_vars) that can be used at runtime and in config fields that support variable interpolation. However, in some cases, some of these environment variables are not URL friendly - in the case of parameterized jobs, the dispatched job's ID (`NOMAD_JOB_ID`) and name (`NOMAD_JOB_NAME`) will have a `/` in them. URL friendly versions of these variables are required when using them in the [`service` stanza](https://www.nomadproject.io/docs/job-specification/service#name). To allow for this, a URL friendly version of the `NOMAD_JOB_ID` and `NOMAD_JOB_NAME` can be found under `NOMAD_META_JOB_ID_SLUG` and `NOMAD_META_JOB_ID_SLUG` - the inspiration for `_SLUG` came from [Gitlab predefined variables](https://docs.gitlab.com/ee/ci/variables/predefined_variables.html). These meta variables are injected at the job level by the init task of nomad-pipeline, making them available to all the task groups that come after it.
 
 Although this feature was added specifically for use with the [`service` stanza](https://www.nomadproject.io/docs/job-specification/service#name), it could prove useful for other config fields. Note to developer: nomad-pipeline might not be the right vehicle for this feature, however the init task was a convenient place to put this functionality.
+
+**Triggered pipelines**
+
+![server](https://img.shields.io/badge/server-green)
+
+Having pipelines (or jobs) react to events can be a powerful mechanism for creating automated workflows. To start using this feature, it is important to have the server component running. Triggers are configured using a yaml file which is passed into the server using the `--triggers-file` flag. Below is an example of a minimal triggers config file along with a job that would be triggered.
+
+```yaml
+- job_id: ffmpeg-transcode  # <-- job id of a parameterized job
+  type: s3  # <-- type of trigger, s3 trigger allows to listen to bucket changes
+  trigger:
+    sqs_url: awssqs://sqs.us-east-2.amazonaws.com/000000000000/videos-to-transcode-queue
+    meta_key: video_object_path  # <-- meta key of job to use to pass the path of object in event
+```
+
+```hcl
+job "ffmpeg-transcode" {
+
+  meta = {
+    "video_object_path" = ""  # configured using the `meta_key` option
+  }
+
+  parameterized {
+    meta_required = ["video_object_path"]
+  }
+
+  group "ffmpeg" {
+
+    task "transcode" {
+      driver = "docker"
+
+      config {
+        image = "hyperbadger/ffmpeg-transcoder"
+        args  = [
+          "-path",
+          "${NOMAD_META_video_object_path}"  # <-- NOMAD_META_video_object_path will be the path to the
+        ]                                    #     object that was created eg. incoming/test.mp4
+      }
+    }
+
+    ...
+  }
+  ...
+}
+```
+
+For more detailed examples and documentation on triggers, see [`triggers.md`](docs/triggers.md).
