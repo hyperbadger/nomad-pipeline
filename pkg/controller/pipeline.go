@@ -363,6 +363,7 @@ func NewPipelineController(cPath string) *PipelineController {
 
 	nClient, err := nomad.NewClient(&nomad.Config{
 		Address: os.Getenv("NOMAD_ADDR"),
+		SecretID: os.Getenv("NOMAD_TOKEN"),
 		Namespace: os.Getenv("NOMAD_NAMESPACE"),
 		Region: os.Getenv("NOMAD_REGION"),
 	})
