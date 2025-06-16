@@ -1,4 +1,4 @@
-FROM golang:1.18-alpine as builder
+FROM golang:1.23-alpine as builder
 
 RUN apk --no-cache add ca-certificates
 
@@ -15,4 +15,4 @@ FROM scratch
 COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 COPY --from=builder /app/nomad-pipeline /nomad-pipeline
 
-ENTRYPOINT ["/nomad-pipeline"] 
+ENTRYPOINT ["/nomad-pipeline"]
