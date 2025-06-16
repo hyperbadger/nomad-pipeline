@@ -1,6 +1,6 @@
 module github.com/hyperbadger/nomad-pipeline
 
-go 1.18
+go 1.23
 
 require (
 	github.com/gin-contrib/zap v0.1.0
